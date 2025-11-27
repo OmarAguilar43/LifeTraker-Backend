@@ -40,36 +40,86 @@ export class StatsService {
   }
 
   async goalProgress(userId: string, goalId: string, q: GoalRangeDto) {
-    const goal = await this.getOwnedGoal(userId, goalId);
-    const { from, to } = this.resolveRange(q);
+  const goal = await this.getOwnedGoal(userId, goalId);
+  const { from, to } = this.resolveRange(q);
 
-    const checkins = await this.prisma.goalCheckin.findMany({
-      where: {
-        goalId,
-        userId,
-        date: { gte: from, lte: to },
-      },
-    });
-
-    const total = checkins.length;
-    const doneCount = checkins.filter((c) => c.done || (c.value ?? 0) > 0).length;
-    const valueSum = checkins.reduce((acc, c) => acc + (c.value ?? 0), 0);
-
-    const target = goal.targetValue ?? null;
-    const completion = target ? Math.min(1, valueSum / target) : null;
-
-    return {
+  const checkins = await this.prisma.goalCheckin.findMany({
+    where: {
       goalId,
-      targetType: goal.targetType,
-      targetValue: target,
-      from,
-      to,
-      totalCheckins: total,
-      doneCount,
-      valueSum,
-      completion,
-    };
+      userId,
+      date: { gte: from, lte: to },
+    },
+  });
+
+  const total = checkins.length;
+
+  const doneCheckins = checkins.filter(
+    (c) => c.done || (c.value ?? 0) > 0,
+  );
+
+  const doneCount = doneCheckins.length;
+  const valueSum = checkins.reduce((acc, c) => acc + (c.value ?? 0), 0);
+
+
+  const doneDays = new Set(
+    doneCheckins.map((c) =>
+      this.normalizeDay(c.date.toISOString()).toISOString(),
+    ),
+  ).size;
+
+  const target = goal.targetValue ?? null;
+
+  let completion: number | null = null;
+
+ 
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  if (goal.targetType === 'DAILY') {
+    
+
+    // fecha de inicio normalizada
+    const goalStart = this.normalizeDay(goal.startDate.toISOString());
+
+    
+    const rawEnd = goal.endDate ?? to;
+    const goalEnd = this.normalizeDay(rawEnd.toISOString());
+
+    if (goalEnd >= goalStart) {
+      const diffMs = goalEnd.getTime() - goalStart.getTime();
+      const totalDays = Math.floor(diffMs / MS_PER_DAY) + 1; // inclusivo
+
+      if (totalDays > 0) {
+        const clampedDone = Math.min(doneDays, totalDays);
+        completion = clampedDone / totalDays; 
+      }
+    } else {
+      
+      completion = null;
+    }
+  } else if (target && target > 0) {
+    
+    completion = Math.min(1, valueSum / target);
+  } else {
+   
+    completion = null;
   }
+
+  return {
+    goalId,
+    targetType: goal.targetType,
+    targetValue: target,
+    from,
+    to,
+    totalCheckins: total,
+    doneCount,
+    valueSum,
+    completion,
+  };
+}
+
+
+  
+
 
   async goalHeatmap(userId: string, goalId: string, q: GoalRangeDto) {
     await this.getOwnedGoal(userId, goalId);
@@ -185,4 +235,9 @@ export class StatsService {
       buckets: items,
     };
   }
+
+
+  
+
+  
 }

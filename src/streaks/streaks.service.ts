@@ -16,7 +16,7 @@ export class StreaksService {
 
   ) {}
 
-  // Normaliza fecha a 00:00:00 UTC
+  
   private normalizeDay(iso: string) {
     const d = new Date(iso);
     if (isNaN(d.getTime())) throw new BadRequestException('date inválida');
@@ -94,7 +94,7 @@ export class StreaksService {
     const streak = await this.prisma.streak.findUnique({ where: { id: streakId } });
     if (!streak) throw new NotFoundException('Streak no encontrada');
 
-    // Debes ser miembro (no forzamos owner para checkin)
+    // Debes ser miembro 
     const member = await this.prisma.streakMember.findUnique({
       where: { streakId_userId: { streakId, userId } },
     });
@@ -109,7 +109,7 @@ export class StreaksService {
     // upsert usando clave compuesta (streakId, userId, date)
    return this.prisma.streakCheckin.upsert({
   where: {
-    unique_streak_user_day: { // 👈 este es el nombre correcto
+    unique_streak_user_day: { 
       streakId,
       userId,
       date: day,
@@ -153,7 +153,7 @@ export class StreaksService {
     });
   }
 
-  // Estadísticas de racha para un miembro (actual y máxima)
+  // Estadísticas de racha para un miembro
   async statsForMember(userId: string, streakId: string, memberUserId?: string) {
     // Validar pertenencia
     const member = await this.prisma.streakMember.findUnique({
@@ -169,7 +169,7 @@ export class StreaksService {
       select: { date: true },
     });
 
-    // Calcular racha actual y más larga (consecutivos por día)
+   
     let longest = 0;
     let current = 0;
     let prev: Date | null = null;

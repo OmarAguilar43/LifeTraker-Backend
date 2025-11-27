@@ -96,7 +96,7 @@ export class GoalsService {
     });
   }
 
-  // Soft delete → archivar
+  // archivar
   async remove(userId: string, id: string) {
     const current = await this.prisma.goal.findUnique({ where: { id } });
     if (!current) throw new NotFoundException('Goal no encontrada');

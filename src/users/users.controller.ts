@@ -1,53 +1,92 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
-import { UsersService } from './users.service';
-import type { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { CurrentUser } from 'src/auth/decorator/current-user.decorator';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { PrismaService } from 'src/common/prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
+const publicUserSelect={
+  id:true,
+  email:true,
+  username:true,
+  createdAt:true,
+  updatedAt:true
+}satisfies Prisma.UserSelect
 
-@Controller('users')
-@UseGuards(JwtAuthGuard)
-export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+@Injectable()
+export class UsersService {
 
-  // 🔹 Obtener mi propio perfil
-  @Get('me')
-  me(@CurrentUser('sub') userId: string) {
-    return this.usersService.findById(userId);
+constructor(private readonly prisma:PrismaService){
+    
   }
 
-  // 🔹 Actualizar mi perfil
-  @Patch('me')
-  updateMe(
-    @CurrentUser('sub') userId: string,
-    @Body() dto: UpdateUserDto,
-  ) {
-    return this.usersService.update(userId, dto);
+  async create(data: Prisma.UserCreateInput) {
+
+    const hashedPassword = await bcrypt.hash(data.passwordHash,10)
+
+    try {
+      
+      const user = await this.prisma.user.create({
+        data:{
+          ...data,
+          passwordHash:hashedPassword
+        },select:publicUserSelect
+      })
+
+      return user
+
+    } catch (error:unknown) {
+      return error
+    }
   }
 
-  // 🔹 Eliminar mi cuenta
-  @Delete('me')
-  removeMe(@CurrentUser('sub') userId: string) {
-    return this.usersService.remove(userId);
-  }
-
-  // 🔹 ADMIN endpoints (opcional)
-  // Si no tienes roles, puedes protegerlos así:
-  @Get()
   findAll() {
-    return this.usersService.findAll();
+    return this.prisma.user.findMany({
+      select:publicUserSelect
+    })
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findById(id);
+  async findById(id: string) {
+      
+      const user =await this.prisma.user.findUnique({
+        where:{id},
+        select:publicUserSelect
+      })
+
+      if(!user)throw new NotFoundException(`Usuario con el id ${id} no encontrado`)
+
+      return user
+    }
+
+     async getProfile(userId: string) {
+    return this.prisma.profile.findUnique({
+      where: { userId },
+    });
   }
-}
+
+
+  async update(userId: string, updateUserDto: UpdateUserDto) {
+
+    return await this.prisma.profile.upsert({
+      where:{userId},
+      update:{
+        fullName: updateUserDto.fullName,
+        avatarUrl: updateUserDto.avatarUrl,
+        bio: updateUserDto.bio,
+      },
+      create:{
+         userId:userId,
+        fullName: updateUserDto.fullName,
+        avatarUrl: updateUserDto.avatarUrl,
+        bio: updateUserDto.bio,
+      }
+  })
+  
+  }
+
+  async remove(id: string) {
+    await this.findById(id); 
+    return this.prisma.user.delete({
+      where: { id },
+      select: publicUserSelect,
+    });
+  }}

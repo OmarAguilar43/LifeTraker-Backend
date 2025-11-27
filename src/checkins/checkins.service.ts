@@ -47,6 +47,7 @@ export class CheckinsService {
     })();
 
     try {
+      
       return await this.prisma.goalCheckin.create({
         data: {
           goalId: dto.goalId,
@@ -55,8 +56,12 @@ export class CheckinsService {
           value: dto.value ?? null,
           done: computedDone,
         },
+        
       });
-    } catch (error) {
+      
+    } 
+    
+    catch (error) {
       if (error?.code === 'P2002') throw new BadRequestException('Ya existe un checkin para ese día');
       throw error;
     }
@@ -163,7 +168,7 @@ export class CheckinsService {
       },
       orderBy: { date: 'asc' },
       include: {
-        goal: true, // opcional, pero suele ser útil
+        goal: true, 
       },
     });
   }

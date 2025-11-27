@@ -12,7 +12,7 @@ export class RankingsService {
 
   ) {}
 
-  // Regla simple: cada checkin de goal válido = 1 punto, cada streakCheckin done=true = 1 punto
+  
  async compute(dto: ComputeRankingDto) {
   const from = new Date(dto.from);
   const to = new Date(dto.to);
@@ -20,7 +20,7 @@ export class RankingsService {
   const toInclusive = new Date(to);
   toInclusive.setHours(23, 59, 59, 999);
 
-  // 1) Aggreg de GoalCheckin
+  
   const goalAgg = await this.prisma.goalCheckin.groupBy({
     by: ['userId'],
     where: {
@@ -33,7 +33,7 @@ export class RankingsService {
     _count: { _all: true },
   });
 
-  // 2) Aggreg de StreakCheckin
+ 
   const streakAgg = await this.prisma.streakCheckin.groupBy({
     by: ['userId'],
     where: {
@@ -46,7 +46,7 @@ export class RankingsService {
     _count: { _all: true },
   });
 
-  // 3) Combinar scores
+ 
   const scoresMap = new Map<string, number>();
 
   for (const row of goalAgg) {
@@ -59,7 +59,7 @@ export class RankingsService {
     scoresMap.set(row.userId, prev + row._count._all);
   }
 
-  // 4) Limpiar ranking viejo y guardar nuevo
+  //  Limpiar ranking viejo y guardar nuevo
   await this.prisma.rankingEntry.deleteMany({
     where: { period: dto.period },
   });
@@ -81,7 +81,7 @@ export class RankingsService {
     data: entriesData,
   });
 
-  // 5) Recuperar ranking ordenado
+  // Recuperar ranking ordenado
   const rankings = await this.prisma.rankingEntry.findMany({
     where: { period: dto.period },
     orderBy: { score: 'desc' },
@@ -94,8 +94,8 @@ export class RankingsService {
 
   const totalUsers = rankings.length;
 
-  // 6) Crear notificaciones para cada usuario
-  //    (puedes limitar a top 10 si quieres)
+  // Crear notificaciones para cada usuario
+  //    
   await Promise.all(
     rankings.map((entry, index) => {
       const rank = index + 1; // 1-based
